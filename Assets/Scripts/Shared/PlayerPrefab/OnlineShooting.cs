@@ -15,12 +15,14 @@ public class OnlineShooting : NetworkBehaviour
         {
             Vector3 mouseWorldPosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
             mouseWorldPosition.z = 0; // Ensure the Z position matches the player's plane
-            FireProjectileServerRpc(mouseWorldPosition);
+            Vector3 direction = (mouseWorldPosition - transform.position).normalized;
+
+            FireProjectileServerRpc(direction);
         }
     }
 
     [ServerRpc]
-    private void FireProjectileServerRpc(Vector3 mouseWorldPosition)
+    private void FireProjectileServerRpc(Vector3 direction)
     {
         if (projectilePrefab == null)
         {
@@ -28,11 +30,15 @@ public class OnlineShooting : NetworkBehaviour
             return;
         }
 
-        // Calculate the direction to fire the projectile
-        Vector3 direction = (mouseWorldPosition - transform.position).normalized;
-
         // Instantiate the projectile on the server
         GameObject projectile = Instantiate(projectilePrefab, transform.position, Quaternion.identity);
+
+        // Pass initial velocity to the projectile
+        BulletController bulletController = projectile.GetComponent<BulletController>();
+        if (bulletController != null)
+        {
+            bulletController.SetInitialVelocity(direction * projectileForce);
+        }
 
         // Spawn the projectile on all clients
         NetworkObject networkObject = projectile.GetComponent<NetworkObject>();
@@ -43,25 +49,6 @@ public class OnlineShooting : NetworkBehaviour
         else
         {
             Debug.LogError("Projectile prefab is missing NetworkObject component.");
-            return;
-        }
-
-        // Apply force after spawning
-        ApplyForceToProjectile(projectile, direction);
-    }
-
-    private void ApplyForceToProjectile(GameObject projectile, Vector3 direction)
-    {
-        Rigidbody2D rb = projectile.GetComponent<Rigidbody2D>();
-        if (rb != null)
-        {
-            Debug.Log("Rigidbody2D found. Applying force...");
-            rb.AddForce(direction * projectileForce, ForceMode2D.Impulse);
-            Debug.Log($"Force applied: {direction * projectileForce}");
-        }
-        else
-        {
-            Debug.LogError("Projectile prefab is missing Rigidbody2D component.");
         }
     }
 }
