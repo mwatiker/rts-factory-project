@@ -10,45 +10,42 @@ public class OnlineShooting : NetworkBehaviour
     {
         if (!IsOwner) return; // Only the owner can shoot
 
-        // Fire a projectile when the left mouse button is clicked
-        if (Input.GetMouseButtonDown(0)) // 0 is the left mouse button
+        if (Input.GetMouseButtonDown(0)) // Left mouse button
         {
             Vector3 mouseWorldPosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            mouseWorldPosition.z = 0; // Ensure the Z position matches the player's plane
-            Vector3 direction = (mouseWorldPosition - transform.position).normalized;
+            mouseWorldPosition.z = 0;
 
-            FireProjectileServerRpc(direction);
+            // Immediate local feedback
+            FireProjectileClient(mouseWorldPosition);
+
+            // Synchronize with server
+            FireProjectileServerRpc(mouseWorldPosition);
+        }
+    }
+
+    private void FireProjectileClient(Vector3 mouseWorldPosition)
+    {
+        Vector3 direction = (mouseWorldPosition - transform.position).normalized;
+
+        // Local projectile creation and force application
+        GameObject projectile = Instantiate(projectilePrefab, transform.position, Quaternion.identity);
+        Rigidbody2D rb = projectile.GetComponent<Rigidbody2D>();
+        if (rb != null)
+        {
+            rb.linearVelocity = direction * projectileForce;
         }
     }
 
     [ServerRpc]
-    private void FireProjectileServerRpc(Vector3 direction)
+    private void FireProjectileServerRpc(Vector3 mouseWorldPosition)
     {
-        if (projectilePrefab == null)
-        {
-            Debug.LogError("Projectile Prefab is not assigned.");
-            return;
-        }
-
-        // Instantiate the projectile on the server
         GameObject projectile = Instantiate(projectilePrefab, transform.position, Quaternion.identity);
-
-        // Pass initial velocity to the projectile
-        BulletController bulletController = projectile.GetComponent<BulletController>();
-        if (bulletController != null)
+        Rigidbody2D rb = projectile.GetComponent<Rigidbody2D>();
+        if (rb != null)
         {
-            bulletController.SetInitialVelocity(direction * projectileForce);
+            Vector3 direction = (mouseWorldPosition - transform.position).normalized;
+            rb.linearVelocity = direction * projectileForce;
         }
-
-        // Spawn the projectile on all clients
-        NetworkObject networkObject = projectile.GetComponent<NetworkObject>();
-        if (networkObject != null)
-        {
-            networkObject.Spawn();
-        }
-        else
-        {
-            Debug.LogError("Projectile prefab is missing NetworkObject component.");
-        }
+        projectile.GetComponent<NetworkObject>().Spawn();
     }
 }
