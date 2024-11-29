@@ -66,6 +66,12 @@ public class OnlineShooting : NetworkBehaviour
 
         networkObject.NetworkHide(serverRpcParams.Receive.SenderClientId);
 
+        // get the BulletController component from the projectile
+        BulletController bulletController = projectile.GetComponent<BulletController>();
+
+        // set the shooter id to the network object id of the player
+        bulletController.SetShooterID(serverRpcParams.Receive.SenderClientId);
+
 
 
 
